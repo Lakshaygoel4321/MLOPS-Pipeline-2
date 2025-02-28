@@ -21,7 +21,9 @@ from xgboost import XGBClassifier
 from src.mlproject.exception import CustomException
 from src.mlproject.logger import logging
 from src.mlproject.utils import save_object,evaluate_models
-
+import dagshub
+dagshub.init(repo_owner='iamhimanshu12goel', repo_name='MLOPS-Pipeline-2', mlflow=True)
+mlflow.set_tracking_uri("https://dagshub.com/iamhimanshu12goel/MLOPS-Pipeline-2.mlflow")
 
 @dataclass
 class ModelTrainerConfig:
@@ -103,8 +105,33 @@ class ModelTrainer:
             ]
             best_model = models[best_model_name]
 
+            print("This is the best model:")
+            print(best_model_name)
+
+            model_names = list(params.keys())
+
+            actual_model=""
+
+            for model in model_names:
+                if best_model_name == model:
+                    actual_model = actual_model + model
+
+            best_params = params[actual_model]
             
-            
+            with mlflow.start_run(run_name='first'):
+                predict_quality = best_model.predict(X_test)
+                
+                (f1,recall,precision) = self.eval_metrics(y_test,predict_quality)
+
+                mlflow.log_params(best_params)
+                
+                mlflow.log_metric("f1_score",f1)
+                mlflow.log_metric('recall_score',recall)
+                mlflow.log_metric('precision_score',precision)
+
+                mlflow.sklearn.log_model(best_model,'best_model')
+
+
             save_object(
                 file_path=self.model_trainer_config.trained_model_file_path,
                 obj=best_model
